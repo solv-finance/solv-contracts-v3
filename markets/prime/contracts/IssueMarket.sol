@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@solvprotocol/erc-3525/IERC3525.sol";
 import "@solvprotocol/contracts-v3-sft-abilities/contracts/issuable/ISFTIssuableDelegate.sol";
 import "@solvprotocol/contracts-v3-sft-abilities/contracts/multi-rechargeable/IMultiRechargeableDelegate.sol";
 import "@solvprotocol/contracts-v3-sft-abilities/contracts/mintable/ISFTMintableDelegate.sol";
@@ -223,28 +224,31 @@ contract IssueMarket is IIssueMarket, IssueMarketStorage, ReentrancyGuardUpgrade
 		emit SetCurrency(currency_, enabled_);
 	}
 
-	function addUnderwriterOnlyOwner(string calldata underwriter_, uint16 defaultFeeRate_, address[] calldata currencies_) public onlyOwner {
+	function addUnderwriterOnlyOwner(string calldata underwriter_, uint16 defaultFeeRate_, address[] calldata currencies_, address initialHolder_) public onlyOwner {
 		bytes32 underwriterKey = _getUnderwriterKey(underwriter_);
 		underwriterInfos[underwriterKey] = UnderwriterInfo(underwriter_, defaultFeeRate_, true);
 		underwriterKeys.add(underwriterKey);
 		emit AddUnderwriter(underwriter_, defaultFeeRate_);
 
 		for (uint256 i = 0; i < currencies_.length; i++) {
-			_createUnderwriterProfitSlot(underwriter_, currencies_[i]);
+			_createUnderwriterProfitSlot(underwriter_, currencies_[i], initialHolder_);
 		}
 	}
-	function addUnderwriterCurrenciesOnlyOwner(string calldata underwriter_, address[] calldata currencies_) public onlyOwner {
+	function addUnderwriterCurrenciesOnlyOwner(string calldata underwriter_, address[] calldata currencies_, address initialHolder_) public onlyOwner {
 		for (uint256 i = 0; i < currencies_.length; i++) {
-			_createUnderwriterProfitSlot(underwriter_, currencies_[i]);
+			_createUnderwriterProfitSlot(underwriter_, currencies_[i], initialHolder_);
 		}
 	}
-	function _createUnderwriterProfitSlot(string memory underwriter_, address currency_) internal {
+	function _createUnderwriterProfitSlot(string memory underwriter_, address currency_, address initialHolder_) internal {
+		require(initialHolder_ != address(0), "IssueMarket: initial holder cannot zero address");
+		
 		bytes32 underwriterKey = _getUnderwriterKey(underwriter_);
 		UnderwriterProfitConcrete underwriterProfitConcrete = UnderwriterProfitConcrete(ISFTDelegateControl(_underwriterProfitToken()).concrete());
 		uint256 slot = underwriterProfitConcrete.getSlot(underwriter_, currency_);
 		if (!underwriterProfitConcrete.isSlotValid(slot)) {
 			IUnderwriterProfitConcrete.InputSlotInfo memory input = IUnderwriterProfitConcrete.InputSlotInfo(underwriter_, currency_);
 			slot = ISFTMintableDelegate(_underwriterProfitToken()).createSlot(abi.encode(input));
+			ISFTMintableDelegate(_underwriterProfitToken()).mint(initialHolder_, slot, 1e8 * (10 ** IERC3525(_underwriterProfitToken()).valueDecimals()));
 		}
 		underwriterProfitSlot[underwriterKey][currency_] = slot;
 		emit AddUnderwriterCurrency(underwriter_, currency_, slot);
