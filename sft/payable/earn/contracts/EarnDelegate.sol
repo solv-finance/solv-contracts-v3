@@ -9,6 +9,7 @@ import "./IEarnConcrete.sol";
 contract EarnDelegate is SFTIssuableDelegate, MultiRepayableDelegate {
 
     event SetCurrency(address indexed currency, bool isAllowed);
+    event SetInterestRate(uint256 indexed slot, int32 interestRate);
 
     bool private __allowRepayWithBalance;
 
@@ -41,7 +42,16 @@ contract EarnDelegate is SFTIssuableDelegate, MultiRepayableDelegate {
         emit SetCurrency(currency_, isAllowed_);
     }
 
+    function setInterestRateOnlySupervisor(uint256 slot_, int32 interestRate_) external {
+        IEarnConcrete(concrete()).setInterestRateOnlyDelegate(_msgSender(), slot_, interestRate_);
+        emit SetInterestRate(slot_, interestRate_);
+    }
+
     function allowRepayWithBalance() public view virtual override returns (bool) {
         return __allowRepayWithBalance;
+    }
+
+    function contractType() external view virtual returns (string memory) {
+        return "Closed-end Fund";
     }
 }

@@ -24,6 +24,30 @@ contract EarnConcrete is IEarnConcrete, SFTIssuableConcrete, MultiRepayableConcr
         _setCurrency(currency_, isAllowed_);
     }
 
+	function setInterestRateOnlyDelegate(address txSender_, uint256 slot_, int32 interestRate_) external override onlyDelegate {
+        SlotExtInfo storage extInfo = _slotExtInfos[slot_];
+        require(extInfo.interestType == InterestType.FLOATING, "EarnConcrete: not floating interest");
+        require(txSender_ == extInfo.supervisor, "EarnConcrete: only supervisor");
+        require(slotTotalValue(slot_) == slotInitialValue(slot_), "EarnConcrete: already claimed");
+
+        extInfo.interestRate = interestRate_;
+        extInfo.isInterestRateSet = true;
+    }
+
+    function claimableValue(uint256 tokenId_) public view virtual override returns (uint256) {
+        uint256 slot = ERC3525Upgradeable(delegate()).slotOf(tokenId_);
+        if (_slotExtInfos[slot].interestType == InterestType.FLOATING && !_slotExtInfos[slot].isInterestRateSet) {
+            return 0;
+        }
+        return super.claimableValue(tokenId_);
+    }
+
+    function getSlot(address issuer_, address currency_, uint64 valueDate_, uint64 maturity_, uint64 createTime_, bool transferable_) public view returns (uint256) {
+		uint256 chainId;
+        assembly { chainId := chainid() }
+		return uint256(keccak256(abi.encodePacked(chainId, delegate(), issuer_, currency_, valueDate_, maturity_, createTime_, transferable_)));
+	}
+
     function slotBaseInfo(uint256 slot_) external view override returns (SlotBaseInfo memory) {
         return _slotBaseInfos[slot_];
     }
@@ -31,15 +55,6 @@ contract EarnConcrete is IEarnConcrete, SFTIssuableConcrete, MultiRepayableConcr
     function slotExtInfo(uint256 slot_) external view override returns (SlotExtInfo memory) {
         return _slotExtInfos[slot_];
     }
-
-    function getSlot(address issuer_, address currency_, uint32 interestRate_, uint64 valueDate_, uint64 maturity_, bool transferable_) public view returns (uint256) {
-		uint256 chainId;
-        assembly {
-            chainId := chainid()
-        }
-
-		return uint256(keccak256(abi.encodePacked(chainId, delegate(), issuer_, currency_, interestRate_, valueDate_, maturity_, transferable_)));
-	}
 
     function _isSlotValid(uint256 slot_) internal view virtual override returns (bool) {
         return _slotBaseInfos[slot_].isValid;
@@ -54,18 +69,22 @@ contract EarnConcrete is IEarnConcrete, SFTIssuableConcrete, MultiRepayableConcr
         SlotBaseInfo memory baseInfo = SlotBaseInfo({
             issuer: txSender_,
             currency: input.currency,
-            interestRate: input.interestRate,
             valueDate: input.valueDate,
             maturity: input.maturity,
+            createTime: input.createTime,
             transferable: input.transferable,
             isValid: true
         });
 
-        slot_ = getSlot(txSender_, input.currency, input.interestRate, input.valueDate, input.maturity, input.transferable);
+        slot_ = getSlot(txSender_, input.currency, input.valueDate, input.maturity, input.createTime, input.transferable);
 
         _slotBaseInfos[slot_] = baseInfo;
         _slotExtInfos[slot_] = SlotExtInfo({
+            supervisor: input.supervisor,
             issueQuota: input.issueQuota,
+            interestType: input.interestType,
+            interestRate: input.interestRate,
+            isInterestRateSet: input.interestType == InterestType.FIXED,
             externalURI: input.externalURI
         });
     }
@@ -83,7 +102,7 @@ contract EarnConcrete is IEarnConcrete, SFTIssuableConcrete, MultiRepayableConcr
     function _validateSlotInfo(InputSlotInfo memory input_) internal view virtual {
         require(input_.valueDate > block.timestamp, "invalid valueDate");
         require(input_.maturity > input_.valueDate, "invalid maturity");
-        require(input_.interestRate > 0, "invalid interestRate");
+        require(uint8(input_.interestType) < 2, "invalid interest type");
     }
 
     function isSlotTransferable(uint256 slot_) external view override returns (bool) {
@@ -104,9 +123,14 @@ contract EarnConcrete is IEarnConcrete, SFTIssuableConcrete, MultiRepayableConcr
 
     function _repayRate(uint256 slot_) internal view virtual override returns (uint256) {
         SlotBaseInfo storage baseInfo = _slotBaseInfos[slot_];
-        return 
-            uint256(baseInfo.interestRate) * MultiRepayableConcrete.REPAY_RATE_SCALAR * (baseInfo.maturity - baseInfo.valueDate) / Constants.SECONDS_PER_YEAR + 
-            uint256(Constants.FULL_PERCENTAGE) * MultiRepayableConcrete.REPAY_RATE_SCALAR;
+        SlotExtInfo storage extInfo = _slotExtInfos[slot_];
+
+        uint256 scaledFullPercentage = uint256(Constants.FULL_PERCENTAGE) * MultiRepayableConcrete.REPAY_RATE_SCALAR;
+        uint256 scaledPositiveInterestRate = 
+            (extInfo.interestRate < 0 ? uint256(int256(0 - extInfo.interestRate)) : uint256(int256(extInfo.interestRate))) * 
+            MultiRepayableConcrete.REPAY_RATE_SCALAR * (baseInfo.maturity - baseInfo.valueDate) / Constants.SECONDS_PER_YEAR;
+
+        return extInfo.interestRate < 0 ? scaledFullPercentage - scaledPositiveInterestRate : scaledFullPercentage + scaledPositiveInterestRate;
     }
 
     function _beforeRepayWithBalance(address txSender_, uint256 slot_, address currency_, uint256 repayCurrencyAmount_) internal virtual override {

@@ -15,8 +15,9 @@ abstract contract MultiRechargeableConcrete is IMultiRechargeableConcrete, BaseS
 		_slotRechargeInfos[slot_].rechargedAmount += rechargeAmount_;
 	}
 
-	function mintOnlyDelegate(uint256 /** tokenId_ */, uint256 slot_, uint256 /** value_ */) external virtual override onlyDelegate {
+	function mintOnlyDelegate(uint256 /** tokenId_ */, uint256 slot_, uint256 value_) external virtual override onlyDelegate {
 		require(_slotRechargeInfos[slot_].rechargedAmount == 0, "MultiRechargeableConcrete: already recharged");
+		_slotRechargeInfos[slot_].totalValue += value_;
 	}
 
 	function claimOnlyDelegate(uint256 tokenId_, address currency_, uint256 amount_) external virtual override onlyDelegate {
