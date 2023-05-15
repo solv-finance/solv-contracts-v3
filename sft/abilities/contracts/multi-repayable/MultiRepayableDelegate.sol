@@ -22,6 +22,7 @@ abstract contract MultiRepayableDelegate is IMultiRepayableDelegate, BaseSFTDele
     }
 
     function claimTo(address to_, uint256 tokenId_, address currency_, uint256 claimValue_) external virtual override nonReentrant {
+        require(claimValue_ > 0, "MultiRepayableDelegate: claim value is zero");
         require(_isApprovedOrOwner(_msgSender(), tokenId_), "MultiRepayableDelegate: caller is not owner nor approved");
         uint256 slot = ERC3525Upgradeable.slotOf(tokenId_);
         uint256 claimableValue = IMultiRepayableConcrete(concrete()).claimableValue(tokenId_);

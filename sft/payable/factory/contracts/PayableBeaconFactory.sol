@@ -28,8 +28,6 @@ contract PayableBeaconFactory is AdminControl {
 
     EnumerableSetUpgradeable.AddressSet internal _managers;
 
-    address private _self;
-
     address public defaultAdmin;
 
     struct PayableAddressPair {
@@ -52,7 +50,6 @@ contract PayableBeaconFactory is AdminControl {
 
     function initialize() external initializer {
         __AdminControl_init(_msgSender());
-        _self = address(this);
         _setDefaultAdmin(_msgSender());
     }
 
@@ -125,6 +122,7 @@ contract PayableBeaconFactory is AdminControl {
     }
 
     function transferBeaconOwnership(string memory productType_, address newOwner_) public virtual onlyAdmin {
+        require(newOwner_ != address(0), "new owner is zero address");
         bytes32 productTypeHash = getHash(productType_);
         UpgradeableBeacon(productTypes[productTypeHash].beacons.payableConcrete).transferOwnership(newOwner_);
         UpgradeableBeacon(productTypes[productTypeHash].beacons.payableDelegate).transferOwnership(newOwner_);

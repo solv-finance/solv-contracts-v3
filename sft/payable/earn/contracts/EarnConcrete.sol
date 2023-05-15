@@ -64,7 +64,7 @@ contract EarnConcrete is IEarnConcrete, SFTIssuableConcrete, MultiRepayableConcr
         InputSlotInfo memory input = abi.decode(inputSlotInfo_, (InputSlotInfo));
         _validateSlotInfo(input);
 
-        require(_allowCurrencies[input.currency], "PayableConcrete: currency not allowed");
+        require(_allowCurrencies[input.currency], "EarnConcrete: currency not allowed");
 
         SlotBaseInfo memory baseInfo = SlotBaseInfo({
             issuer: txSender_,
@@ -91,18 +91,17 @@ contract EarnConcrete is IEarnConcrete, SFTIssuableConcrete, MultiRepayableConcr
 
     function _mint(address /** txSender_ */, address currency_, address /** mintTo_ */, uint256 slot_, uint256 /** tokenId_ */, uint256 /** amount_ */) internal virtual override {
         SlotBaseInfo storage base = _slotBaseInfos[slot_];
-        require(base.isValid, "PayableConcrete: invalid slot");
-        require(base.currency == currency_, "PayableConcrete: currency not match");
+        require(base.isValid, "EarnConcrete: invalid slot");
+        require(base.currency == currency_, "EarnConcrete: currency not match");
 
         uint256 issueQuota = _slotExtInfos[slot_].issueQuota;
         uint256 issuedAmount = MultiRepayableConcrete.slotInitialValue(slot_);
-        require(issuedAmount <= issueQuota, "PayableConcrete: issueQuota exceeded");
+        require(issuedAmount <= issueQuota, "EarnConcrete: issueQuota exceeded");
     }
 
     function _validateSlotInfo(InputSlotInfo memory input_) internal view virtual {
-        require(input_.valueDate > block.timestamp, "invalid valueDate");
-        require(input_.maturity > input_.valueDate, "invalid maturity");
-        require(uint8(input_.interestType) < 2, "invalid interest type");
+        require(input_.valueDate > block.timestamp, "EarnConcrete: invalid valueDate");
+        require(input_.maturity > input_.valueDate, "EarnConcrete: invalid maturity");
     }
 
     function isSlotTransferable(uint256 slot_) external view override returns (bool) {
@@ -135,6 +134,6 @@ contract EarnConcrete is IEarnConcrete, SFTIssuableConcrete, MultiRepayableConcr
 
     function _beforeRepayWithBalance(address txSender_, uint256 slot_, address currency_, uint256 repayCurrencyAmount_) internal virtual override {
         super._beforeRepayWithBalance(txSender_, slot_, currency_, repayCurrencyAmount_);
-        require(txSender_ == _slotBaseInfos[slot_].issuer, "PayableConcrete: only issuer");
+        require(txSender_ == _slotBaseInfos[slot_].issuer, "EarnConcrete: only issuer");
     }
 }
