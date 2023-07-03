@@ -48,7 +48,10 @@ abstract contract TimelockedERC20Concrete is ITimelockedERC20Concrete, BaseSFTCo
 		TimelockSlotInfo storage info = _slotInfos[slot_];
 		require(info.isValid, "TimelockedERC20Concrete: invalid slot");
 		require(startTime_ <= info.latestStartTime, "TimelockedERC20Concrete: exceeds latestStartTime");
-		require(info.startTime == 0 || block.timestamp < info.startTime, "TimelockedERC20Concrete: already started");
+		require(
+			(info.startTime == 0 && block.timestamp < info.latestStartTime) || block.timestamp < info.startTime, 
+			"TimelockedERC20Concrete: already started"
+		);
 
 		emit SetStartTime(slot_, info.startTime == 0 ? info.latestStartTime : info.startTime, startTime_);
 		info.startTime = startTime_;
@@ -67,12 +70,16 @@ abstract contract TimelockedERC20Concrete is ITimelockedERC20Concrete, BaseSFTCo
 		return _slotInfos[slot];
 	}
 
-	function erc20(uint256 slot_) external view virtual override returns(address) {
+	function erc20(uint256 slot_) external view virtual override returns (address) {
 		return _slotInfos[slot_].erc20;
 	}
 
-	function issuer(uint256 slot_) external view virtual override returns(address) {
+	function issuer(uint256 slot_) external view virtual override returns (address) {
 		return _slotInfos[slot_].issuer;
+	}
+
+	function tokenInitialValue(uint256 tokenId_) external view virtual override returns (uint256) {
+		return _tokenInitialValue[tokenId_];
 	}
 
 	function claimableValue(uint256 tokenId_) public view virtual returns (uint256) {
@@ -86,7 +93,10 @@ abstract contract TimelockedERC20Concrete is ITimelockedERC20Concrete, BaseSFTCo
 
 		uint256 balance = IERC3525(delegate()).balanceOf(tokenId_);
 
-		if (info.timelockType == TimelockType.LINEAR || info.timelockType == TimelockType.ONE_TIME) {
+		if (info.timelockType == TimelockType.ONE_TIME) {
+			return block.timestamp >= startTime + info.terms[0] ? balance : 0;
+
+		} else if (info.timelockType == TimelockType.LINEAR) {
 			if (block.timestamp >= startTime + info.terms[0]) {
 				return balance;
 			}

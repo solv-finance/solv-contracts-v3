@@ -30,6 +30,7 @@ interface ITimelockedERC20Concrete {
 	function slotInfo(uint256 slot) external view returns (TimelockSlotInfo memory);
 	function erc20(uint256 slot_) external view returns (address);
 	function issuer(uint256 slot_) external view returns (address);
+	function tokenInitialValue(uint256 tokenId_) external view returns (uint256);
 	function claimableValue(uint256 tokenId_) external view returns (uint256);
 
 	function getSlot(address erc20_, bytes calldata inputSlotInfo_) external view returns (uint256);

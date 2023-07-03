@@ -10,6 +10,11 @@ contract TimelockedERC20ContainerConcrete is ITimelockedERC20ContainerConcrete, 
 
     address public lockedErc20;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() { 
+        _disableInitializers();
+    }
+    
     function initialize(address lockedErc20_) external initializer {
         TimelockedERC20Concrete.__TimelockedERC20Concrete_init();
         TimelockedERC20ContainerConcrete.lockedErc20 = lockedErc20_;

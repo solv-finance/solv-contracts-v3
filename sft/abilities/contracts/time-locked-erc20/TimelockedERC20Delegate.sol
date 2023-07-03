@@ -23,7 +23,7 @@ abstract contract TimelockedERC20Delegate is ITimelockedERC20Delegate, BaseSFTDe
 		slot_ = _createSlotIfNotExist(erc20_, inputSlotInfo_);
 
 		_timelock_doTransferIn(erc20_, _msgSender(), tokenInAmount_);
-		uint256 mintValue = tokenInAmount_ * valueDecimals() / ERC20(erc20_).decimals();
+		uint256 mintValue = tokenInAmount_ * (10 ** valueDecimals()) / (10 ** ERC20(erc20_).decimals());
 		_beforeMint(mintTo_, slot_, mintValue);
 		tokenId_ = _mint(mintTo_, slot_, mintValue);
 		ITimelockedERC20Concrete(concrete()).mintOnlyDelegate(_msgSender(), mintTo_, slot_, tokenId_, mintValue);
@@ -36,12 +36,12 @@ abstract contract TimelockedERC20Delegate is ITimelockedERC20Delegate, BaseSFTDe
 		ITimelockedERC20Concrete(concrete()).claimOnlyDelegate(tokenId_, erc20_, claimValue_);
 		if (_timelock_burn_id() && ERC3525Upgradeable.balanceOf(tokenId_) == claimValue_) {
 			ERC3525Upgradeable._burn(tokenId_);
-		}  else {
+		} else {
 			ERC3525Upgradeable._burnValue(tokenId_, claimValue_);
 		}
 
-		uint256 tokenOutAmount = claimValue_ * ERC20(erc20_).decimals() / valueDecimals();
-		_timelock_doTransferOut(_msgSender(), erc20_, tokenOutAmount);
+		uint256 tokenOutAmount = claimValue_ * (10 ** ERC20(erc20_).decimals()) / (10 ** valueDecimals());
+		_timelock_doTransferOut(erc20_, _msgSender(), tokenOutAmount);
 	}
 
 	function setStartTime(uint256 slot_, uint64 startTime_) external virtual onlySlotOwner(slot_) {
