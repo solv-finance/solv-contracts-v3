@@ -39,7 +39,7 @@ abstract contract SFTIssuableDelegate is ISFTIssuableDelegate, BaseSFTDelegateUp
 		return _combineArrays(existAddresses, newAddresses);
 	}
 
-	function _issueMarket() internal view returns (address) {
+	function _issueMarket() internal view virtual returns (address) {
 		return getRequiredAddress(Constants.CONTRACT_ISSUE_MARKET, "SFTIssuableDelegate: issueMarket not set");
 	}
 
