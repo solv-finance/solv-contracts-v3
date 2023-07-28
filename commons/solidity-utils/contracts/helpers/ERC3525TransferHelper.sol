@@ -47,9 +47,9 @@ library ERC3525TransferHelper {
         address underlying,
         uint256 fromTokenId,
         uint256 value
-    ) internal {
+    ) internal returns (uint256 newTokenId) {
         ERC3525Interface token = ERC3525Interface(underlying);
-        token.transferFrom(fromTokenId, address(this), value);
+        return token.transferFrom(fromTokenId, address(this), value);
     }
 
     function doTransferOut(
@@ -59,24 +59,17 @@ library ERC3525TransferHelper {
         uint256 value
     ) internal returns (uint256 newTokenId) {
         ERC3525Interface token = ERC3525Interface(underlying);
-        newTokenId = token.transferFrom(
-            fromTokenId,
-            to,
-            value
-        );
+        newTokenId = token.transferFrom(fromTokenId, to, value);
     }
 
-    function doTransferOut(
+    function doTransfer(
         address underlying,
         uint256 fromTokenId,
         uint256 toTokenId,
         uint256 value
     ) internal {
         ERC3525Interface token = ERC3525Interface(underlying);
-        token.transferFrom(
-            fromTokenId,
-            toTokenId,
-            value
-        );
+        token.transferFrom(fromTokenId, toTokenId, value);
     }
+
 }
