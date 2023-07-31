@@ -51,7 +51,7 @@ contract EarnDelegate is SFTIssuableDelegate, MultiRepayableDelegate {
         return __allowRepayWithBalance;
     }
 
-    function contractType() external view virtual returns (string memory) {
+    function contractType() external view virtual override returns (string memory) {
         return "Closed-end Fund";
     }
 }

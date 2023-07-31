@@ -44,5 +44,7 @@ abstract contract BaseSFTDelegateUpgradeable is IBaseSFTDelegate, ERC3525SlotEnu
         return returnData;
 	}
 
+	function contractType() external view virtual returns (string memory);
+
 	uint256[50] private __gap;
 }
