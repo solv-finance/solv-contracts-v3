@@ -59,8 +59,9 @@ abstract contract FCFSMultiRepayableConcrete is IFCFSMultiRepayableConcrete, Bas
         uint256 slot = ERC3525Upgradeable(delegate()).slotOf(tokenId_);
         uint256 balance = ERC3525Upgradeable(delegate()).balanceOf(tokenId_);
         uint8 valueDecimals = ERC3525Upgradeable(delegate()).valueDecimals();
-        uint256 slotRepaidValue = _slotRepayInfo[slot].currencyBalance * (10 ** valueDecimals) / _repayRate(slot);
-        return balance < slotRepaidValue ? balance : slotRepaidValue;
+        uint256 dueAmount = balance *  _repayRate(slot) / (10 ** valueDecimals);
+        return dueAmount < _slotRepayInfo[slot].currencyBalance ? balance : 
+                _slotRepayInfo[slot].currencyBalance * (10 ** valueDecimals) / _repayRate(slot);
     }
 
     function slotRepaidCurrencyAmount(uint256 slot_) public view virtual override returns (uint256) {

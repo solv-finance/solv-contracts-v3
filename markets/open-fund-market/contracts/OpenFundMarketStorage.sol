@@ -26,7 +26,7 @@ contract OpenFundMarketStorage is IOpenFundMarketStorage, OwnControl {
 	uint256 public protocolFeeRate;
 	address public protocolFeeCollector;
 
-	mapping(bytes32 => uint256) internal _previousRedeemSlot;
+	mapping(bytes32 => uint256) public previousRedeemSlot;
 
 	uint256[42] private __gap;
 }	

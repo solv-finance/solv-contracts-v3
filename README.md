@@ -18,11 +18,17 @@ This is the repository for core smart contracts of the Solv Protocol V3 products
 
 [`markets`](./markets) contains smart contracts for issuing and trading SFTs. 
 
-- [`prime`](./markets/prime): Smart contracts for Solv Payable Market, a platform for issuing and subscribing Payable SFTs.
+- [`prime`](./markets/prime): Smart contracts for Solv Closed-end Fund Market, a platform for issuing and subscribing Payable SFTs.
 
-    - [`price`](./markets/prime/price): Price strategy module of Payable Market, allowing the market to support different price strategies, such as Fixed-Price strategy, Declining-Price strategy, etc.
+    - [`price`](./markets/prime/price): Price strategy module of Closed-end Fund Market, allowing the market to support different price strategies, such as Fixed-Price strategy, Declining-Price strategy, etc.
 
-    - [`whitelist`](./markets/prime/whitelist): Whitelist strategy module of Payable Market, allowing any issuer to set whitelist for the subscription of an issuance.
+    - [`whitelist`](./markets/prime/whitelist): Whitelist strategy module of Closed-end Fund Market, allowing any issuer to set whitelist for the subscription of an issuance.
+
+- [`open-fund-market`](./markets/open-fund-market): Smart contracts for Solv Open-end Fund Market, a platform for issuing and subscribing Open-end Fund.
+
+    - [`whitelist`](./markets/open-fund-market/whitelist): Whitelist strategy module of Payable Market, allowing any issuer to set whitelist for the subscription of an issuance.
+
+    - [`oracle`](./markets/open-fund-market/oracle): Nav oracle module of Payable Market, allowing nav manager to set nav for the fund.
 
 ### sft
 
@@ -46,6 +52,8 @@ This is the repository for core smart contracts of the Solv Protocol V3 products
 
 - [`payable`](./sft/payable): Smart contracts for Solv Payable SFT products, including Earn SFT and Underwriter Profit SFT, etc.
 
-    - [`earn`](./sft/payable/earn): Smart contracts for Solv earn SFT product, integrated with `issuable` and `multi-repayable` abilities. 
+    - [`earn`](./sft/payable/earn): Smart contracts for Solv Closed-end product, integrated with `issuable` and `multi-repayable` abilities. 
 
     - [`underwriter-profit`](./sft/payable/underwriter-profit): Smart contracts for Solv Underwriter Profit SFT product, integrated with `mintable`, `multi-rechargeable` and `slot-ownable` abilities.
+
+    - [`open-fund`](./sft/payable/open-fund): Smart contracts for Solv Open-end Fund product, intergrated with `value-issuable`, `fcfs-multi-repayable`, `issuable` and `multi-repayable`.

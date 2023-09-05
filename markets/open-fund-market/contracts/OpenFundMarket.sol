@@ -21,7 +21,6 @@ import "./whitelist/IOFMWhitelistStrategyManager.sol";
 import "./oracle/INavOracle.sol";
 
 contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGuardUpgradeable, ResolverCache {
-    	using EnumerableSet for EnumerableSet.UintSet;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() { 
@@ -196,16 +195,16 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
         require(_msgSender() == poolInfo.managerInfo.poolManager, "OFM: only pool manager");
         require(poolInfo.poolSFTInfo.latestRedeemSlot != 0, "OFM: no redeem requests");
 
-        uint256 previousRedeemSlot = _previousRedeemSlot[poolId_];
-        if (previousRedeemSlot > 0) {
-            require(block.timestamp - poolRedeemSlotCloseTime[previousRedeemSlot] >= 24 * 60 * 60, "OFM: redeem period less than 24h");
+        uint256 poolPreviousRedeemSlot = previousRedeemSlot[poolId_];
+        if (poolPreviousRedeemSlot > 0) {
+            require(block.timestamp - poolRedeemSlotCloseTime[poolPreviousRedeemSlot] >= 24 * 60 * 60, "OFM: redeem period less than 24h");
 
             OpenFundRedemptionConcrete redemptionConcrete = OpenFundRedemptionConcrete(OpenFundRedemptionDelegate(poolInfo.poolSFTInfo.openFundRedemption).concrete());
-            uint256 previousRedeemNav = redemptionConcrete.getRedeemNav(previousRedeemSlot);
+            uint256 previousRedeemNav = redemptionConcrete.getRedeemNav(poolPreviousRedeemSlot);
             require(previousRedeemNav > 0, "OFM: previous redeem nav not set");
 
-            uint256 previousRedeemValue = redemptionConcrete.slotTotalValue(previousRedeemSlot);
-            uint256 previousRepaidCurrencyAmount = redemptionConcrete.slotRepaidCurrencyAmount(previousRedeemSlot);
+            uint256 previousRedeemValue = redemptionConcrete.slotInitialValue(poolPreviousRedeemSlot);
+            uint256 previousRepaidCurrencyAmount = redemptionConcrete.slotRepaidCurrencyAmount(poolPreviousRedeemSlot);
             uint8 redemptionValueDecimals = OpenFundRedemptionDelegate(poolInfo.poolSFTInfo.openFundRedemption).valueDecimals();
             require(previousRepaidCurrencyAmount >= previousRedeemValue * previousRedeemNav / (10 ** redemptionValueDecimals), "OFM: previous redeem slot not fully repaid");
         }
@@ -219,7 +218,7 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
 
         uint256 closingRedeemSlot = poolInfo.poolSFTInfo.latestRedeemSlot;
         poolRedeemSlotCloseTime[closingRedeemSlot] = block.timestamp;
-        _previousRedeemSlot[poolId_] = closingRedeemSlot;
+        previousRedeemSlot[poolId_] = closingRedeemSlot;
 
         poolInfo.poolSFTInfo.latestRedeemSlot = ISFTValueIssuableDelegate(poolInfo.poolSFTInfo.openFundRedemption).createSlotOnlyIssueMarket(_msgSender(), abi.encode(nextRedeemInfo));
         _poolRedeemTokenId[poolInfo.poolSFTInfo.latestRedeemSlot] = ISFTValueIssuableDelegate(poolInfo.poolSFTInfo.openFundShare)
@@ -251,9 +250,11 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
         uint256 settledNav = nav_ * (currencyBalance_ - carryAmount - protocolFeeAmount) / currencyBalance_;
 
         uint256 mintCarryValue = carryAmount * (10 ** IERC3525(poolInfo.poolSFTInfo.openFundShare).valueDecimals()) / settledNav;
-        ISFTValueIssuableDelegate(poolInfo.poolSFTInfo.openFundShare).mintOnlyIssueMarket(
-            _msgSender(), poolInfo.currency, poolInfo.poolFeeInfo.carryCollector, poolInfo.poolSFTInfo.openFundShareSlot, mintCarryValue
-        );
+        if (mintCarryValue > 0) {
+            ISFTValueIssuableDelegate(poolInfo.poolSFTInfo.openFundShare).mintOnlyIssueMarket(
+                _msgSender(), poolInfo.currency, poolInfo.poolFeeInfo.carryCollector, poolInfo.poolSFTInfo.openFundShareSlot, mintCarryValue
+            );
+        }
         emit SettleCarry(poolId_, redeemSlot_, poolInfo.currency, currencyBalance_, carryAmount);
 
         _mintProtocolFeeShares(poolId_, protocolFeeAmount, settledNav, 0);
