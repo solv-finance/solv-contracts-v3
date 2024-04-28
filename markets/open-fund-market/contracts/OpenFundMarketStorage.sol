@@ -3,10 +3,10 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import "@solvprotocol/contracts-v3-solidity-utils/contracts/access/OwnControl.sol";
+import "@solvprotocol/contracts-v3-solidity-utils/contracts/access/GovernorControl.sol";
 import "./IOpenFundMarketStorage.sol";
 
-contract OpenFundMarketStorage is IOpenFundMarketStorage, OwnControl {
+contract OpenFundMarketStorage is IOpenFundMarketStorage, GovernorControl {
 	// keccak256(openFundSFT, openFundSlot)
 	mapping(bytes32 => PoolInfo) public poolInfos;
 

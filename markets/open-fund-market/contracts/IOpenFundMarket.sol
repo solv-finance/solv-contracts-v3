@@ -27,6 +27,8 @@ interface IOpenFundMarket is IOpenFundMarketStorage {
 	event SettleCarry(bytes32 indexed poolId, uint256 indexed redeemSlot, address currency, uint256 currencyBalance, uint256 carryAmount);
 	event SettleProtocolFee(bytes32 indexed poolId, address currency, uint256 protocolFeeAmount);
 
+    event UpdatePoolInfo(bytes32 indexed poolId, uint16 newCarryRate, address newCarryCollector, uint256 newSubscribeMin, uint256 newSubscribeMax, address newSubscribeNavManager, address newRedeemNavManager);
+
 	struct InputPoolInfo {
 		address openFundShare;
         address openFundRedemption;

@@ -27,8 +27,8 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
         _disableInitializers();
     }
     
-    function initialize(address resolver_, address owner_) external initializer {
-		__OwnControl_init(owner_);
+    function initialize(address resolver_, address governor_) external initializer {
+		__GovernorControl_init(governor_);
 		__ReentrancyGuard_init();
 		__ResolverCache_init(resolver_);
 	}
@@ -203,10 +203,10 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
             uint256 previousRedeemNav = redemptionConcrete.getRedeemNav(poolPreviousRedeemSlot);
             require(previousRedeemNav > 0, "OFM: previous redeem nav not set");
 
-            uint256 previousRedeemValue = redemptionConcrete.slotInitialValue(poolPreviousRedeemSlot);
-            uint256 previousRepaidCurrencyAmount = redemptionConcrete.slotRepaidCurrencyAmount(poolPreviousRedeemSlot);
+            uint256 previousSlotTotalValue = redemptionConcrete.slotTotalValue(poolPreviousRedeemSlot);
+            uint256 previousSlotCurrencyBalance = redemptionConcrete.slotCurrencyBalance(poolPreviousRedeemSlot);
             uint8 redemptionValueDecimals = OpenFundRedemptionDelegate(poolInfo.poolSFTInfo.openFundRedemption).valueDecimals();
-            require(previousRepaidCurrencyAmount >= previousRedeemValue * previousRedeemNav / (10 ** redemptionValueDecimals), "OFM: previous redeem slot not fully repaid");
+            require(previousSlotCurrencyBalance >= previousSlotTotalValue * previousRedeemNav / (10 ** redemptionValueDecimals), "OFM: previous redeem slot not fully repaid");
         }
         
         IOpenFundRedemptionConcrete.RedeemInfo memory nextRedeemInfo = IOpenFundRedemptionConcrete.RedeemInfo({
@@ -325,10 +325,37 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
     function updateFundraisingEndTime(bytes32 poolId_, uint64 newEndTime_) external virtual nonReentrant {
         PoolInfo storage poolInfo = poolInfos[poolId_];
         require(poolInfo.poolSFTInfo.openFundShareSlot != 0, "OFM: pool does not exist");
-        require(_msgSender() == owner || _msgSender() == poolInfo.managerInfo.redeemNavManager, "OFM: only owner or redeem nav manager");
+        require(_msgSender() == governor || _msgSender() == poolInfo.managerInfo.redeemNavManager, "OFM: only governor or redeem nav manager");
         emit UpdateFundraisingEndTime(poolId_, poolInfo.subscribeLimitInfo.fundraisingEndTime, newEndTime_);
         poolInfo.subscribeLimitInfo.fundraisingEndTime = newEndTime_;
     }
+
+
+    function updatePoolInfoOnlyGovernor(
+        bytes32 poolId_, uint16 carryRate_, address carryCollector_, 
+        uint256 subscribeMin_, uint256 subscribeMax_, 
+        address subscribeNavManager_, address redeemNavManager_
+    ) external virtual onlyGovernor {
+        PoolInfo storage poolInfo = poolInfos[poolId_];
+
+        require(
+            poolInfo.poolSFTInfo.openFundShareSlot != 0 && 
+            carryRate_ <= 10000 && carryCollector_ != address(0) && 
+            subscribeMin_ <= subscribeMax_ && 
+            subscribeNavManager_ != address(0) && redeemNavManager_ != address(0), 
+            "OFM: invalid input"
+        );
+
+        poolInfo.poolFeeInfo.carryRate = carryRate_;
+        poolInfo.poolFeeInfo.carryCollector = carryCollector_;
+        poolInfo.subscribeLimitInfo.subscribeMin = subscribeMin_;
+        poolInfo.subscribeLimitInfo.subscribeMax = subscribeMax_;
+        poolInfo.managerInfo.subscribeNavManager = subscribeNavManager_;
+        poolInfo.managerInfo.redeemNavManager = redeemNavManager_;
+
+        emit UpdatePoolInfo(poolId_, carryRate_, carryCollector_, subscribeMin_, subscribeMax_, subscribeNavManager_, redeemNavManager_);
+    }
+
 
 	function _whitelistStrategyManager() internal view returns (IOFMWhitelistStrategyManager) {
 		return IOFMWhitelistStrategyManager(
@@ -347,14 +374,14 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
 		_whitelistStrategyManager().setWhitelist(poolId_, whitelist_);
 	}
 
-    function setCurrencyOnlyOwner(address currency_, bool enabled_) external virtual onlyOwner {
-        require(currency_ != address(0), "OFM: currency cannot be the zero address");
+    function setCurrencyOnlyGovernor(address currency_, bool enabled_) external virtual onlyGovernor {
+        require(currency_ != address(0), "OFM: invalid currency");
 		currencies[currency_] = enabled_;
 		emit SetCurrency(currency_, enabled_);
 	}
 
-    function addSFTOnlyOwner(address sft_, address manager_) external virtual onlyOwner {
-        require(sft_ != address(0), "OFM: sft cannot be the zero address");
+    function addSFTOnlyGovernor(address sft_, address manager_) external virtual onlyGovernor {
+        require(sft_ != address(0), "OFM: invalid sft");
 		sftInfos[sft_] = SFTInfo({
             manager: manager_,
             isValid: true
@@ -362,44 +389,38 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
 		emit AddSFT(sft_, manager_);
 	}
 
-    function removeSFTOnlyOwner(address sft_) external virtual onlyOwner {
+    function removeSFTOnlyGovernor(address sft_) external virtual onlyGovernor {
         delete sftInfos[sft_];
         emit RemoveSFT(sft_);
     }
 
-    function setProtocolFeeRateOnlyOwner(uint256 newFeeRate_) external virtual onlyOwner {
-        require(newFeeRate_ <= 10000, "OFM: fee rate out of bound");
-        emit SetProtocolFeeRate(protocolFeeRate, newFeeRate_);
+    function setProtocolFeeOnlyGovernor(uint256 newFeeRate_, address newFeeCollector_) external virtual onlyGovernor {
+        require(newFeeRate_ <= 10000 && newFeeCollector_ != address(0), "OFM: invalid input");
         protocolFeeRate = newFeeRate_;
-    }
-
-    function setProtocolFeeCollectorOnlyOwner(address newFeeCollector_) external virtual onlyOwner {
-        require(newFeeCollector_ != address(0), "OFM: fee collector cannot be the zero address");
-        emit SetProtocolFeeCollector(protocolFeeCollector, newFeeCollector_);
         protocolFeeCollector = newFeeCollector_;
+        emit SetProtocolFeeRate(protocolFeeRate, newFeeRate_);
+        emit SetProtocolFeeCollector(protocolFeeCollector, newFeeCollector_);
     }
 
-    function _resolverAddressesRequired() internal view virtual override returns (bytes32[] memory) {
-		bytes32[] memory existAddresses = super._resolverAddressesRequired();
-		bytes32[] memory newAddresses = new bytes32[](2);
-		newAddresses[0] = OFMConstants.CONTRACT_OFM_WHITELIST_STRATEGY_MANAGER;
-		newAddresses[1] = OFMConstants.CONTRACT_OFM_NAV_ORACLE;
-		return _combineArrays(existAddresses, newAddresses);
+    function _resolverAddressesRequired() internal view virtual override returns (bytes32[] memory requiredAddresses) {
+		requiredAddresses = new bytes32[](2);
+		requiredAddresses[0] = OFMConstants.CONTRACT_OFM_WHITELIST_STRATEGY_MANAGER;
+		requiredAddresses[1] = OFMConstants.CONTRACT_OFM_NAV_ORACLE;
 	}
 
     function _validateInputPoolInfo(InputPoolInfo calldata inputPoolInfo_) internal view virtual {
-        require(currencies[inputPoolInfo_.currency], "OFM: currency not allowed");
+        require(currencies[inputPoolInfo_.currency], "OFM: invalid currency");
         SFTInfo storage openFundShareInfo = sftInfos[inputPoolInfo_.openFundShare];
-        require(openFundShareInfo.isValid, "OFM: share not allowed");
+        require(openFundShareInfo.isValid, "OFM: invalid share");
         require(openFundShareInfo.manager == address(0) || _msgSender() == openFundShareInfo.manager, "OFM: invalid share manager");
 
         SFTInfo storage openFundRedemptionInfo = sftInfos[inputPoolInfo_.openFundRedemption];
-        require(openFundRedemptionInfo.isValid, "OFM: redemption not allowed");
+        require(openFundRedemptionInfo.isValid, "OFM: invalid redemption");
         require(openFundRedemptionInfo.manager == address(0) || _msgSender() == openFundRedemptionInfo.manager, "OFM: invalid redemption manager");
 
         require(
             IERC3525(inputPoolInfo_.openFundShare).valueDecimals() == IERC3525(inputPoolInfo_.openFundRedemption).valueDecimals(), 
-            "OFM: valueDecimals not match"
+            "OFM: decimals not match"
         );
         
         require(inputPoolInfo_.subscribeLimitInfo.subscribeMin <= inputPoolInfo_.subscribeLimitInfo.subscribeMax, "OFM: invalid min and max");
