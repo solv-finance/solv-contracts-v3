@@ -51,7 +51,10 @@ abstract contract MultiRepayableConcrete is IMultiRepayableConcrete, BaseSFTConc
 
     function transferOnlyDelegate(uint256 fromTokenId_, uint256 toTokenId_, uint256 fromTokenBalance_, uint256 transferValue_) external virtual override onlyDelegate {
         _beforeTransfer(fromTokenId_, toTokenId_, fromTokenBalance_, transferValue_);
-        uint256 transferInitialValue = transferValue_ * _tokenRepayInfo[fromTokenId_].initialValue / fromTokenBalance_;
+        uint256 transferInitialValue = 0;
+        if (fromTokenId_ != toTokenId_ && fromTokenBalance_ > 0) {
+            transferInitialValue = transferValue_ * _tokenRepayInfo[fromTokenId_].initialValue / fromTokenBalance_;
+        }
         _tokenRepayInfo[fromTokenId_].initialValue -= transferInitialValue;
         _tokenRepayInfo[toTokenId_].initialValue += transferInitialValue;
     }
@@ -75,17 +78,22 @@ abstract contract MultiRepayableConcrete is IMultiRepayableConcrete, BaseSFTConc
     function claimableValue(uint256 tokenId_) public view virtual override returns (uint256) {
         uint256 slot = ERC3525Upgradeable(delegate()).slotOf(tokenId_);
         uint256 balance = ERC3525Upgradeable(delegate()).balanceOf(tokenId_);
-        uint8 valueDecimals = ERC3525Upgradeable(delegate()).valueDecimals();
-        uint8 currencyDecimals = ERC20(_currency(slot)).decimals();
-        uint256 initialValueOfSlot = _slotRepayInfo[slot].initialValue;
-        uint256 initialValueOfToken = tokenInitialValue(tokenId_);
+        uint256 repayRate = _repayRate(slot);
 
-        uint256 slotDueAmount = initialValueOfSlot * _repayRate(slot) * (10 ** currencyDecimals) / Constants.FULL_PERCENTAGE / REPAY_RATE_SCALAR / (10 ** valueDecimals);
-        uint256 slotRepaidAmount = repaidCurrencyAmount(slot);
-        uint256 tokenTotalClaimableValue = slotRepaidAmount >= slotDueAmount ? initialValueOfToken : initialValueOfToken * slotRepaidAmount / slotDueAmount;
+        if (repayRate == 0) {
+            return 0;
+        } else {
+            uint8 valueDecimals = ERC3525Upgradeable(delegate()).valueDecimals();
+            uint8 currencyDecimals = ERC20(_currency(slot)).decimals();
+            uint256 initialValueOfSlot = _slotRepayInfo[slot].initialValue;
+            uint256 initialValueOfToken = tokenInitialValue(tokenId_);
+            uint256 slotDueAmount = initialValueOfSlot * repayRate * (10 ** currencyDecimals) / Constants.FULL_PERCENTAGE / REPAY_RATE_SCALAR / (10 ** valueDecimals);
+            uint256 slotRepaidAmount = repaidCurrencyAmount(slot);
+            uint256 tokenTotalClaimableValue = slotRepaidAmount >= slotDueAmount ? initialValueOfToken : initialValueOfToken * slotRepaidAmount / slotDueAmount;
 
-        uint256 tokenClaimedBalance = initialValueOfToken - balance;
-        return tokenTotalClaimableValue > tokenClaimedBalance ? tokenTotalClaimableValue - tokenClaimedBalance : 0;
+            uint256 tokenClaimedBalance = initialValueOfToken - balance;
+            return tokenTotalClaimableValue > tokenClaimedBalance ? tokenTotalClaimableValue - tokenClaimedBalance : 0;
+        }
     }
 
     function _currency(uint256 slot_) internal view virtual returns (address);

@@ -28,7 +28,7 @@ abstract contract FCFSMultiRepayableConcrete is IFCFSMultiRepayableConcrete, Bas
     function repayWithBalanceOnlyDelegate(address txSender_, uint256 slot_, address currency_, uint256 repayCurrencyAmount_) external payable virtual override onlyDelegate {
         _beforeRepayWithBalance(txSender_, slot_, currency_, repayCurrencyAmount_);
         uint256 balance = ERC20(currency_).balanceOf(delegate());
-        require(repayCurrencyAmount_ <= balance - allocatedCurrencyBalance[currency_], "MultiRepayableConcrete: insufficient unallocated balance");
+        require(repayCurrencyAmount_ <= balance - allocatedCurrencyBalance[currency_], "FMR: insufficient unallocated balance");
         _slotRepayInfo[slot_].repaidCurrencyAmount += repayCurrencyAmount_;
         _slotRepayInfo[slot_].currencyBalance += repayCurrencyAmount_;
         allocatedCurrencyBalance[currency_] += repayCurrencyAmount_;
@@ -41,14 +41,28 @@ abstract contract FCFSMultiRepayableConcrete is IFCFSMultiRepayableConcrete, Bas
 
     function claimOnlyDelegate(uint256 tokenId_, uint256 slot_, address currency_, uint256 claimValue_) external virtual override onlyDelegate returns (uint256 claimCurrencyAmount_) {
         _beforeClaim(tokenId_, slot_, currency_, claimValue_);
-        require(claimValue_ <= claimableValue(tokenId_), "MR: insufficient claimable value");
+        require(claimValue_ <= claimableValue(tokenId_), "FMR: insufficient claimable value");
         _slotValueInfo[slot_].slotTotalValue -= claimValue_;
 
         uint8 valueDecimals = ERC3525Upgradeable(delegate()).valueDecimals();
         claimCurrencyAmount_ = claimValue_ * _repayRate(slot_) / (10 ** valueDecimals);
-        require(claimCurrencyAmount_ <= _slotRepayInfo[slot_].currencyBalance, "MR: insufficient repaid currency amount");
+        require(claimCurrencyAmount_ <= _slotRepayInfo[slot_].currencyBalance, "FMR: insufficient repaid currency amount");
         allocatedCurrencyBalance[currency_] -= claimCurrencyAmount_;
         _slotRepayInfo[slot_].currencyBalance -= claimCurrencyAmount_;
+    }
+
+    function refundOnlyDelegate(uint256 slot_, address currency_) external virtual override onlyDelegate returns (uint256 refundableCurrencyAmount_) {
+        require(currency_ == _currency(slot_), "FMR: invalid currency");
+        uint8 valueDecimals = ERC3525Upgradeable(delegate()).valueDecimals();
+        uint256 dueAmount = slotTotalValue(slot_) * _repayRate(slot_) / (10 ** valueDecimals) + 1;
+        uint256 slotBalance = slotCurrencyBalance(slot_);
+        refundableCurrencyAmount_ = slotBalance > dueAmount ? slotBalance - dueAmount : 0;
+        
+        if (refundableCurrencyAmount_ > 0) {
+            _slotRepayInfo[slot_].repaidCurrencyAmount -= refundableCurrencyAmount_;
+            _slotRepayInfo[slot_].currencyBalance -= refundableCurrencyAmount_;
+            allocatedCurrencyBalance[currency_] -= refundableCurrencyAmount_;
+        }
     }
 
     function transferOnlyDelegate(uint256 fromTokenId_, uint256 toTokenId_, uint256 fromTokenBalance_, uint256 transferValue_) external virtual override onlyDelegate {
@@ -59,9 +73,15 @@ abstract contract FCFSMultiRepayableConcrete is IFCFSMultiRepayableConcrete, Bas
         uint256 slot = ERC3525Upgradeable(delegate()).slotOf(tokenId_);
         uint256 balance = ERC3525Upgradeable(delegate()).balanceOf(tokenId_);
         uint8 valueDecimals = ERC3525Upgradeable(delegate()).valueDecimals();
-        uint256 dueAmount = balance *  _repayRate(slot) / (10 ** valueDecimals);
-        return dueAmount < _slotRepayInfo[slot].currencyBalance ? balance : 
-                _slotRepayInfo[slot].currencyBalance * (10 ** valueDecimals) / _repayRate(slot);
+        uint256 repayRate = _repayRate(slot);
+
+        if (repayRate == 0) {
+            return 0;
+        } else {
+            uint256 dueAmount = balance * repayRate / (10 ** valueDecimals);
+            return dueAmount < _slotRepayInfo[slot].currencyBalance ? balance : 
+                    _slotRepayInfo[slot].currencyBalance * (10 ** valueDecimals) / repayRate;
+        }
     }
 
     function slotRepaidCurrencyAmount(uint256 slot_) public view virtual override returns (uint256) {

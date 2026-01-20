@@ -18,6 +18,7 @@ interface IFCFSMultiRepayableConcrete {
     function repayWithBalanceOnlyDelegate(address txSender_, uint256 slot_, address currency_, uint256 repayCurrencyAmount_) external payable;
     function mintOnlyDelegate(uint256 tokenId_, uint256 slot_, uint256 mintValue_) external;
     function claimOnlyDelegate(uint256 tokenId_, uint256 slot_, address currency_, uint256 claimValue_) external returns (uint256);
+    function refundOnlyDelegate(uint256 slot_, address currency_) external returns (uint256);
 
     function transferOnlyDelegate(uint256 fromTokenId_, uint256 toTokenId_, uint256 fromTokenBalance_, uint256 transferValue_) external;
     

@@ -8,7 +8,15 @@ import "./IOpenFundRedemptionConcrete.sol";
 
 contract OpenFundRedemptionConcrete is IOpenFundRedemptionConcrete, SFTValueIssuableConcrete, FCFSMultiRepayableConcrete {
 
+    event SetRedemptionFeeReceiver(address indexed redemptionFeeReceiver);
+    event SetRedemtpionFeeRate(bytes32 indexed poolId, uint256 redemptionFeeRate);
+
     mapping(uint256 => RedeemInfo) internal _redeemInfos;
+
+    address public redemptionFeeReceiver;
+
+    // poolId => redemptionFeeRate
+    mapping(bytes32 => uint256) public redemptionFeeRates;  // base: 1e18
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() { 
@@ -21,6 +29,20 @@ contract OpenFundRedemptionConcrete is IOpenFundRedemptionConcrete, SFTValueIssu
 
     function setRedeemNavOnlyDelegate(uint256 slot_, uint256 nav_) external virtual override onlyDelegate {
         _redeemInfos[slot_].nav = nav_;
+    }
+
+    function setRedemptionFeeReceiverOnlyAdmin(address redemptionFeeReceiver_) external virtual onlyAdmin {
+        redemptionFeeReceiver = redemptionFeeReceiver_;
+        emit SetRedemptionFeeReceiver(redemptionFeeReceiver_);
+    }
+
+    function setRedemptionFeeRateOnlyAdmin(bytes32 poolId_, uint256 redemptionFeeRate_) external virtual onlyAdmin {
+        redemptionFeeRates[poolId_] = redemptionFeeRate_;
+        emit SetRedemtpionFeeRate(poolId_, redemptionFeeRate_);
+    }
+
+    function getRedemptionFeeRate(uint256 slot_) external view virtual returns (uint256) {
+        return redemptionFeeRates[_redeemInfos[slot_].poolId];
     }
 
     function getRedeemInfo(uint256 slot_) external view virtual override returns (RedeemInfo memory) {

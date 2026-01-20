@@ -15,4 +15,6 @@ interface IOpenFundRedemptionConcrete {
 
 	function getRedeemInfo(uint256 slot_) external view returns (RedeemInfo memory);
 	function getRedeemNav(uint256 slot_) external view returns (uint256);
+	function getRedemptionFeeRate(uint256 slot_) external view returns (uint256);
+	function redemptionFeeReceiver() external view returns (address);
 }

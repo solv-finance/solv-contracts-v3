@@ -31,6 +31,31 @@ contract OpenFundRedemptionDelegate is IOpenFundRedemptionDelegate, SFTValueIssu
 		IOpenFundRedemptionConcrete(concrete()).setRedeemNavOnlyDelegate(slot_, nav_);
 	}
 
+    function claimTo(address to_, uint256 tokenId_, address currency_, uint256 claimValue_) external virtual override nonReentrant {
+        require(claimValue_ > 0, "OFRD: claim value is zero");
+        require(_isApprovedOrOwner(_msgSender(), tokenId_), "OFRD: caller is not owner nor approved");
+        uint256 slot = ERC3525Upgradeable.slotOf(tokenId_);
+        uint256 claimableValue = IFCFSMultiRepayableConcrete(concrete()).claimableValue(tokenId_);
+        require(claimValue_ <= claimableValue, "OFRD: over claim");
+        
+        uint256 claimCurrencyAmount = IFCFSMultiRepayableConcrete(concrete()).claimOnlyDelegate(tokenId_, slot, currency_, claimValue_);
+        uint256 feeRate = IOpenFundRedemptionConcrete(concrete()).getRedemptionFeeRate(slot);
+        uint256 feeAmount = claimCurrencyAmount * feeRate / 1e18;
+        
+        if (claimValue_ == ERC3525Upgradeable.balanceOf(tokenId_)) {
+            ERC3525Upgradeable._burn(tokenId_);
+        } else {
+            ERC3525Upgradeable._burnValue(tokenId_, claimValue_);
+        }
+        
+        address feeReceiver = IOpenFundRedemptionConcrete(concrete()).redemptionFeeReceiver();
+        if (feeReceiver != address(0) && feeAmount > 0) {
+            ERC20TransferHelper.doTransferOut(currency_, payable(feeReceiver), feeAmount);
+        }
+        ERC20TransferHelper.doTransferOut(currency_, payable(to_), claimCurrencyAmount - feeAmount);
+        emit Claim(to_, tokenId_, claimValue_, currency_, claimCurrencyAmount);
+    }
+
     function allowRepayWithBalance() public view virtual override returns (bool) {
         return __allowRepayWithBalance;
     }

@@ -105,12 +105,11 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
         uint256 nav;
         if (block.timestamp < poolInfo.valueDate) {
             nav = 10 ** ERC20(poolInfo.currency).decimals();
-            // only for first subscribe period
-            poolInfo.fundraisingAmount += currencyAmount_;
-            require(poolInfo.fundraisingAmount <= poolInfo.subscribeLimitInfo.hardCap, "OFM: hard cap reached");
         } else {
             (nav, ) = INavOracle(poolInfo.navOracle).getSubscribeNav(poolId_, block.timestamp);
         }
+        poolInfo.fundraisingAmount += currencyAmount_;
+        require(poolInfo.fundraisingAmount <= poolInfo.subscribeLimitInfo.hardCap, "OFM: hard cap reached");
 
         value_ = (currencyAmount_ * ( 10 ** IERC3525(poolInfo.poolSFTInfo.openFundShare).valueDecimals())) / nav;
         require(value_ > 0, "OFM: value cannot be 0");
@@ -333,7 +332,7 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
 
     function updatePoolInfoOnlyGovernor(
         bytes32 poolId_, uint16 carryRate_, address carryCollector_, 
-        uint256 subscribeMin_, uint256 subscribeMax_, 
+        uint256 hardCap_, uint256 subscribeMin_, uint256 subscribeMax_, 
         address subscribeNavManager_, address redeemNavManager_
     ) external virtual onlyGovernor {
         PoolInfo storage poolInfo = poolInfos[poolId_];
@@ -350,6 +349,7 @@ contract OpenFundMarket is IOpenFundMarket, OpenFundMarketStorage, ReentrancyGua
         poolInfo.poolFeeInfo.carryCollector = carryCollector_;
         poolInfo.subscribeLimitInfo.subscribeMin = subscribeMin_;
         poolInfo.subscribeLimitInfo.subscribeMax = subscribeMax_;
+        poolInfo.subscribeLimitInfo.hardCap = hardCap_;
         poolInfo.managerInfo.subscribeNavManager = subscribeNavManager_;
         poolInfo.managerInfo.redeemNavManager = redeemNavManager_;
 

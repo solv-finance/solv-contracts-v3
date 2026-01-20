@@ -3,6 +3,10 @@
 pragma solidity ^0.8.0;
 
 interface INavOracle {
+	event SetDefaultMaxNavDiff(uint256 maxNavDiff);
+	event SetMaxNavDiff(bytes32 indexed poolId, uint256 maxNavDiff);
+	event SetDefaultDailySetNavTimesLimit(uint256 limit);
+	event SetDailySetNavTimesLimit(bytes32 indexed poolId, uint256 limit);
 	event SetSubscribeNav(bytes32 indexed poolId, uint256 indexed time, uint256 nav);
 	event UpdateAllTimeHighRedeemNav(bytes32 indexed poolId, uint256 oldNav, uint256 newNav);
 

@@ -16,17 +16,17 @@ abstract contract FCFSMultiRepayableDelegate is IFCFSMultiRepayableDelegate, Bas
     }
 
     function repayWithBalance(uint256 slot_, address currency_, uint256 repayCurrencyAmount_) external payable virtual override nonReentrant {
-        require(allowRepayWithBalance(), "MultiRepayableDelegate: cannot repay with balance");
+        require(allowRepayWithBalance(), "MR: cannot repay with balance");
         IFCFSMultiRepayableConcrete(concrete()).repayWithBalanceOnlyDelegate(_msgSender(), slot_, currency_, repayCurrencyAmount_);
         emit Repay(slot_, _msgSender(), currency_, repayCurrencyAmount_);
     }
 
     function claimTo(address to_, uint256 tokenId_, address currency_, uint256 claimValue_) external virtual override nonReentrant {
-        require(claimValue_ > 0, "MultiRepayableDelegate: claim value is zero");
-        require(_isApprovedOrOwner(_msgSender(), tokenId_), "MultiRepayableDelegate: caller is not owner nor approved");
+        require(claimValue_ > 0, "MR: claim value is zero");
+        require(_isApprovedOrOwner(_msgSender(), tokenId_), "MR: caller is not owner nor approved");
         uint256 slot = ERC3525Upgradeable.slotOf(tokenId_);
         uint256 claimableValue = IFCFSMultiRepayableConcrete(concrete()).claimableValue(tokenId_);
-        require(claimValue_ <= claimableValue, "MultiRepayableDelegate: over claim");
+        require(claimValue_ <= claimableValue, "MR: over claim");
         
         uint256 claimCurrencyAmount = IFCFSMultiRepayableConcrete(concrete()).claimOnlyDelegate(tokenId_, slot, currency_, claimValue_);
         
@@ -40,6 +40,14 @@ abstract contract FCFSMultiRepayableDelegate is IFCFSMultiRepayableDelegate, Bas
         emit Claim(to_, tokenId_, claimValue_, currency_, claimCurrencyAmount);
     }
 
+    function refundOnlyOwner(uint256 slot_, address currency_) external virtual override nonReentrant onlyOwner returns (uint256 refundCurrencyAmount_) {
+        refundCurrencyAmount_ = IFCFSMultiRepayableConcrete(concrete()).refundOnlyDelegate(slot_, currency_);
+        if (refundCurrencyAmount_ > 0) {
+            ERC20TransferHelper.doTransferOut(currency_, payable(owner), refundCurrencyAmount_);
+            emit Refund(slot_, currency_, refundCurrencyAmount_);
+        }
+    }
+ 
     function _beforeValueTransfer(
         address from_,
         address to_,

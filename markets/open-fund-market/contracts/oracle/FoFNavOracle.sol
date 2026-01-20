@@ -22,9 +22,12 @@ contract FoFNavOracle is INavOracle, AdminControl, ResolverCache {
 	event AddFeederPool(bytes32 indexed fofPoolId, bytes32 indexed feederPoolId);
 	event removeFoFPool(bytes32 indexed fofPoolId);
 	event removeFeederPool(bytes32 indexed fofPoolId, bytes32 indexed feederPoolId);
+	event UpdateSubscribeNav(bytes32 indexed fofPoolId, uint256 nav);
 
 	mapping(bytes32 => EnumerableSet.Bytes32Set) internal _feederPoolIds;
 	mapping(bytes32 => uint256) public allTimeHighRedeemNav;
+
+	mapping(bytes32 => uint256) public subscribeNaves;
 
 	modifier onlyMarket {
 		require(msg.sender == _openFundMarket());
@@ -42,7 +45,12 @@ contract FoFNavOracle is INavOracle, AdminControl, ResolverCache {
 	}
 
 	function setSubscribeNavOnlyMarket(bytes32 /*fofPoolId_*/, uint256 /*time_*/, uint256 /*nav_*/) external onlyMarket {
-		
+		//do nothing
+	}
+
+	function setSubscribeNavOnlyAdmin(bytes32 fofPoolId_, uint256 nav_) external onlyAdmin {
+		subscribeNaves[fofPoolId_] = nav_;
+		emit UpdateSubscribeNav(fofPoolId_, nav_);
 	}
 
 	function updateAllTimeHighRedeemNavOnlyMarket(bytes32 fofPoolId_, uint256 nav_)  external {
@@ -55,7 +63,10 @@ contract FoFNavOracle is INavOracle, AdminControl, ResolverCache {
 
 	function getSubscribeNav(bytes32 fofPoolId_, uint256 /** time_ */) external view returns (uint256 nav_, uint256 navTime_) {
 		OpenFundMarket.PoolInfo memory poolInfo = _getPoolInfo(fofPoolId_);
-		nav_ = 10 ** ERC20(poolInfo.currency).decimals();
+		nav_ = subscribeNaves[fofPoolId_];
+		if (nav_ == 0) {
+			nav_ = 10 ** ERC20(poolInfo.currency).decimals();
+		}
 		navTime_ = block.timestamp;
 	}
 
